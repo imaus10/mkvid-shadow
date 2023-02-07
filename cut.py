@@ -5,6 +5,7 @@ import subprocess
 
 from tqdm import trange
 
+from credits import *
 from extract import *
 from glitch import *
 from params import *
@@ -227,7 +228,7 @@ def overlay():
         overlay_output = f'[dancers{i}overlay]'
         overlay_cmd = f'''{trim_input}
             trim=start={trim_start}:duration={trim_duration}, setpts=PTS-STARTPTS,
-            {crop_filter}, fps={fps},
+            {dancers_crop_filter}, fps={fps},
             lumakey=threshold=0:{lumakey_params},
             {xtra_filter}
             tpad=start_duration={overlay_start}
@@ -252,7 +253,7 @@ def overlay():
 
 
 def recombine():
-    prinnit('Recombining glitched 2nd half and adding audio...')
+    prinnit('Recombining glitched 2nd half, adding bridge fire, audio, and opening titles/credits...')
     metadata_description = f'''
         An open source music video for Near Northeast by Austin Blanton (aka Art Fungus).
     '''
@@ -260,31 +261,35 @@ def recombine():
       -i media/glitch_output.avi
       -framerate {fps} -i "media/frames/fire_bridge/%06d.png"
       -framerate {fps} -i "media/frames/outro_masked/%06d.png"
+      -f lavfi -i "color=black:s=1280x720"
+      -ss 00:02:19 -i media/mushroom_timelapse.mp4
       -i media/shadow.wav
       -filter_complex
-       "[0:v] split [a][b];
-        [a] trim=end_frame={bridge_fire_start} [prebridge];
-        [b]
+       "[0:v] split=3 [a][b][c];
+        [a]
+          trim=duration=15,
+          {add_opening_titles()}
+        [opening_titles];
+        [b] trim=start=15:end_frame={bridge_fire_start}, setpts=PTS-STARTPTS [prebridge];
+        [c]
           trim=start_frame={bridge_fire_start}:end_frame={s_to_f(outro_start)},
           setpts=PTS-STARTPTS,
           lumakey=threshold=0:tolerance=0.1:softness=0.01
         [bridge_luma];
         [1:v] eq=brightness='if(lt(n,{s_to_f(6*bar_dur)}), n/(r*{6*bar_dur})*0.5-0.5)':eval=frame [fire];
         [fire][bridge_luma] overlay=shortest=1 [bridge];
-        [prebridge][bridge][2:v] concat=n=3:v=1:a=0 [outv]"
-      -map [outv] -map 3:a -shortest
+        {add_credits()};
+        [opening_titles][prebridge][bridge][outro_credits] concat=n=4:v=1:a=0 [outv];
+        [5:a]
+          aloop=loop=15:start=44100*({total_dur}-1):size=44100,
+          afade=type=out:start_time={total_dur+5}:duration=10
+        [outa]"
+      -map [outv] -map [outa]
       -c:v libx264 -pix_fmt yuv420p -r {fps}
       -metadata title="Near Northeast - Shadow"
       -metadata description="{metadata_description}"
       media/shadow11.mp4
     ''')
-
-    # encoding arguments from DeepDreamAnim/DeepDreamVideo
-    # -c:v libx264 -crf 30 -pix_fmt yuv420p -tune fastdecode -tune zerolatency -profile:v baseline
-    # previous higher quality encoding
-    # -crf 20
-    # last setting
-    # -crf 18
 
 
 def mkvid():
@@ -315,3 +320,7 @@ if __name__ == '__main__':
     freeze_support()
     set_start_method('spawn')
     mkvid()
+    # something with the terminal control codes
+    # causes my terminal to not show keyboard input...
+    # this resets it.
+    subprocess.run('stty echo', check=True, shell=True)

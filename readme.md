@@ -18,12 +18,6 @@ To "build from source," run:
 source mkvid.sh
 ```
 
-*Sometimes* after running, something with the terminal control codes causes my terminal to not show keyboard input...this resets it.
-
-```
-stty echo
-```
-
 ## prereqs
 
 This was built for MacOS. If you're using another OS, you'll likely need to change some things.
@@ -48,9 +42,5 @@ This was built for MacOS. If you're using another OS, you'll likely need to chan
 
 ## TODO
 
-- chorus 2: adjust luma/crop
-- bridge: elbow luma
-- title/credits? (dancers bowing?)
-- encoding settings
-- pretty up code
+- encoding settings? (https://trac.ffmpeg.org/wiki/Encode/H.264)
 - test full process w setup (and time it)
