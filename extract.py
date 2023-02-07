@@ -1,7 +1,8 @@
+from glob import glob
 import os
 import shutil
 import subprocess
-from tqdm import trange
+from tqdm import tqdm, trange
 
 from params import *
 from segment import save_dancer_masks
@@ -13,44 +14,38 @@ def extract_dancer_frames(align_test=False):
     prinnit('Extracting frames from the dancer video...')
     subprocess.run('mkdir -p media/frames/dancers', check=True, shell=True)
 
-    split_outputs = []
-    concat_inputs = []
-    stretch_cmds = []
-    for i, (start_time, duration, stretch_duration_frames, lumakey_params) in enumerate(dancer_alignments):
-        is_penultimate = i == len(dancer_alignments)-2
-        is_outro = i == len(dancer_alignments)-1
+    frame_count = 1
+    for i, cut_params in enumerate(tqdm(dancer_alignments)):
+        start_time, duration, stretch_duration_frames, *more_params = cut_params
+        more_params = more_params[0] if more_params else {}
+        if i < len(dancer_alignments)-1:
+            frame_count += stretch_duration_frames
+            continue
+
+        overlay = ''
+        if 'lumakey' in more_params:
+            lumakey_params = more_params['lumakey']
+            overlay = f'lumakey={lumakey_params} [overlay{i}]; [1:v][overlay{i}] overlay=shortest=1,'
+            del more_params['lumakey']
+
         stretch_cmd = get_stretch_cmd(
             duration,
             stretch_duration_frames,
-            use_minterpolate=is_outro,
-            gradually=is_penultimate
+            **more_params
         )
 
-        overlay = ''
-        if lumakey_params:
-            overlay = f'lumakey={lumakey_params} [overlay{i}]; [1:v][overlay{i}] overlay=shortest=1,'
-
-        stretch_input = f'[dancer{i}]'
-        stretch_output = f'[dancer_stretched{i}]'
-        stretch_cmd = f'''{stretch_input}
-            trim=start={start_time}, {stretch_cmd}, fps={fps},
-            trim=start_frame=0:end_frame={stretch_duration_frames},
-            {overlay} {crop_filter}
-        {stretch_output}'''
-        stretch_cmds.append(stretch_cmd)
-        split_outputs.append(stretch_input)
-        concat_inputs.append(stretch_output)
-
-    nl = '; \n        ' # empty space for correct printing
-    ffmpeg(f'''
-      -i media/dancers.mp4
-      -f lavfi -i "color=black:s=640x480"
-      -filter_complex
-       "[0:v] split={len(split_outputs)} {''.join(split_outputs)};
-        {nl.join(stretch_cmds)};
-        {''.join(concat_inputs)} concat=n={len(concat_inputs)}:v=1:a=0, fps={fps} [dancer]"
-      -map [dancer] "media/frames/dancers/%06d.png"
-    ''')
+        ffmpeg(f'''
+          -ss {start_time} -i media/dancers.mp4
+          -f lavfi -i "color=black:s=640x480:r=30"
+          -filter_complex
+           "{stretch_cmd}, fps={fps},
+            trim=end_frame={stretch_duration_frames},
+            {overlay} {dancers_crop_filter}"
+          -start_number {frame_count} "media/frames/dancers/%06d.png"
+        ''')
+        frame_count += stretch_duration_frames
+        actual_frame_count = len(glob('media/frames/dancers/*.png'))
+        assert actual_frame_count == frame_count-1
 
     # COLLECT DANCER POSE MASKS
     # do this before luma because pose segmentation
@@ -59,9 +54,9 @@ def extract_dancer_frames(align_test=False):
 
     prinnit('Applying lumakey to outro dancers...')
     ffmpeg(f'''
-      -start_number {s_to_f(outro_start)} -i "media/frames/dancers/%06d.png"
+      -start_number {s_to_f(outro_start)+1} -i "media/frames/dancers/%06d.png"
       -vf "lumakey=threshold=0:tolerance=0.15:softness=0.1"
-      -start_number {s_to_f(outro_start)} "media/frames/dancers/%06d.png"
+      -start_number {s_to_f(outro_start)+1} "media/frames/dancers/%06d.png"
     ''')
 
     # for the outro, overlay the man/woman mirror dancers on top of slow waves
@@ -72,25 +67,10 @@ def extract_dancer_frames(align_test=False):
     waves_freq = bar_dur*4
     num_waves = 4
 
-    prinnit('Adding mask during outro waves...')
-    split_outputs = ''
-    overlay_cmds = []
-    last_overlay = '[1:v]'
+    prinnit('Adding waves to outro...')
     pbar = tqdm(total=num_waves*wave_frames)
     for wave_num in range(num_waves):
-        waves_start_frame = s_to_f(waves_freq*(wave_num+1))
-        tpad_input = f'[waves{wave_num}]'
-        overlay_output = f'[waves{wave_num}overlay]'
-        overlay_cmd = f'''{tpad_input}
-            tpad=start={waves_start_frame}:stop=-1
-        [waves{wave_num}tpad];
-        [waves{wave_num}tpad]{last_overlay}
-            overlay=enable='gte(n,{waves_start_frame})':shortest=1
-        {overlay_output}'''
-        split_outputs += tpad_input
-        last_overlay = overlay_output
-        overlay_cmds.append(overlay_cmd)
-
+        waves_start_frame = s_to_f(outro_start + waves_freq*(wave_num+1)) + 1
         # prevent waves coming thru transparent bodies
         for i in range(wave_frames):
             frame_num = waves_start_frame + i
@@ -105,26 +85,30 @@ def extract_dancer_frames(align_test=False):
             dancers[:,:,3] = pose_mask
             cv2.imwrite(out_path, dancers)
             pbar.update()
-
-    prinnit('Adding waves to outro...')
-    overlay_cmds = ';\n        '.join(overlay_cmds)
+    loop_frames = s_to_f(waves_freq)
     ffmpeg(f'''
       -i "media/frames/waves_slow/%06d.png"
-      -start_number {s_to_f(outro_start)} -i "media/frames/dancers/%06d.png"
+      -start_number {s_to_f(outro_start)+1} -i "media/frames/dancers/%06d.png"
+      -f lavfi -i "color=black:s={cropx}"
       -filter_complex
-       "[0:v] trim=end_frame={wave_frames}, split={num_waves} {split_outputs};
-        {overlay_cmds}"
-      -map {last_overlay} -start_number {s_to_f(outro_start)} "media/frames/dancers/%06d.png"
+       "[0:v]
+          trim=end_frame={wave_frames},
+          tpad=stop={loop_frames-wave_frames+1},
+          loop=loop={num_waves-1}:size={loop_frames+1},
+          tpad=start={loop_frames}:stop=-1
+        [waves];
+        [waves][1:v] overlay=shortest=1 [waves_overlay]"
+      -map [waves_overlay] -start_number {s_to_f(outro_start)+1} "media/frames/dancers/%06d.png"
     ''')
 
     if align_test:
         prinnit('Making align test...')
-        ffmpeg(f''' -y
+        ffmpeg(f'''
           -framerate {fps} -i "media/frames/dancers/%06d.png"
           -i media/shadow.wav
           -map 0:v -map 1:a -shortest
           -c:v libx264 -pix_fmt yuv420p
-          media/align_test.mp4
+          -y media/align_test.mp4
         ''')
 
 
@@ -174,7 +158,6 @@ def extract_fire_frames():
             shutil.copyfile(inpath, outpath)
         else:
             cv2.imwrite(out_path, black_frame)
-    import sys; sys.exit()
 
 
 def extract_wave_frames():
@@ -186,8 +169,8 @@ def extract_wave_frames():
         prinnit(f'Extracting frames from the waves video to {filepath}...')
         subprocess.run(f'mkdir -p {filepath}', check=True, shell=True)
 
-        waves_input = '-i media/waves.mp4'
-        trim_cmd = 'trim=start=144.5:duration=17, setpts=PTS-STARTPTS,'
+        waves_input = '-ss 144.5 -i media/waves.mp4'
+        trim_cmd = 'duration=17,'
         waves_output = f'"{filepath}/%06d.png"'
 
         if is_slow:

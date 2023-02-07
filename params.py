@@ -13,6 +13,8 @@ fps = 30
 crop = '1280:720'
 cropx = '1280x720'
 crop_filter = f'scale={crop}:force_original_aspect_ratio=increase, crop={crop}, setsar=1'
+# the dancers video has some transfer artifacts we crop away
+dancers_crop_filter = f'crop=x=20:w=iw-40:y=10:h=ih-20, {crop_filter}'
 
 def s_to_f(seconds):
     '''
@@ -53,11 +55,11 @@ dancer_alignments = [
     # cut out black at beginning.
     # starts with what looks like VHS static,
     # until bass synth starts...
-    [ 10, 7.5, bass_synth_start_frame, '' ],
+    [ 10, 7.5, bass_synth_start_frame ],
     # then a stage appears,
     # the stage curtains open while the camera zooms in,
     # and when guitar & drums enter...
-    [ 17.5, 4.5, guitar_start_frame - bass_synth_start_frame, '' ],
+    [ 17.5, 4.5, guitar_start_frame - bass_synth_start_frame ],
 ]
 # a figure floats onto the stage ethereally at about half speed...
 trim_start = 22
@@ -65,7 +67,7 @@ trim_duration = 87.5
 dancer_entrance_frame = get_frame_count(dancer_alignments)
 stretch_duration_frames = s_to_f(synth_arp_start) - dancer_entrance_frame
 dancer_alignments.append(
-    [ trim_start, trim_duration, stretch_duration_frames, '' ]
+    [ trim_start, trim_duration, stretch_duration_frames ]
 )
 # until the synth arp enters
 # when we cut to another dancer standing and fidgeting with hands...
@@ -75,37 +77,35 @@ hand_gesture = 4*60 + 6.25
 trim_duration = hand_gesture - trim_start
 violin_gesture = bridge_violin_start + 10*bar_dur
 stretch_duration_frames = s_to_f(violin_gesture - synth_arp_start)
-dancer_alignments.append(
-    [ trim_start, trim_duration, stretch_duration_frames, 'threshold=0:tolerance=0.1:softness=0.2' ]
-)
+dancer_alignments.append([
+    trim_start, trim_duration, stretch_duration_frames,
+    { 'lumakey' : 'threshold=0:tolerance=0.1:softness=0.2' }
+])
 # then back to normal speed...
 trim_start = hand_gesture
 trim_duration = bar_dur*2
 stretch_duration_frames = s_to_f(trim_duration)
-dancer_alignments.append(
-    [ trim_start, trim_duration, stretch_duration_frames, 'threshold=0:tolerance=0.1:softness=0.2' ]
-)
+dancer_alignments.append([
+    trim_start, trim_duration, stretch_duration_frames,
+    { 'lumakey' : 'threshold=0:tolerance=0.1:softness=0.2' }
+])
 # slow down to half speed during 2-bar lull before outro...
 trim_start = hand_gesture + trim_duration
 trim_duration = bar_dur/2
 stretch_duration_frames = s_to_f(outro_start) - get_frame_count(dancer_alignments)
-dancer_alignments.append(
-    [ trim_start, trim_duration, stretch_duration_frames, 'threshold=0:tolerance=0.1:softness=0.2' ]
-)
+dancer_alignments.append([
+    trim_start, trim_duration, stretch_duration_frames,
+    { 'lumakey'   : 'threshold=0:tolerance=0.1:softness=0.2'
+    , 'gradually' : True }
+])
 # cut to unnaturally sluggish man/woman mirror for the whole outro.
-# TODO: for some reason, this starts a frame early.
-# s_to_f(outro_start) is 6602 (zero-indexed).
-# because ffmpeg outputs frames starting at 1 (one-indexed),
-# it should start at 006603.png, but it starts at 006602.png.
-# a frame was axed...mystery!!!
-# the consequence is that whenever we're dealing with frames
-# after the outro, we DO NOT add 1 to the frame number.
 trim_start = 8*60 + 35.4
 outro_trim_duration = 9.18
 outro_frames = total_frames - get_frame_count(dancer_alignments)
-dancer_alignments.append(
-    [ trim_start, outro_trim_duration, outro_frames, '' ]
-)
+dancer_alignments.append([
+    trim_start, outro_trim_duration, outro_frames,
+    { 'use_minterpolate' : True }
+])
 
 # video FX markers
 fire_trail_start = s_to_f(chorus1_end + 4*bar_dur)
@@ -171,6 +171,7 @@ num_wave_frames = None
 num_slow_wave_frames = None
 # loop the 17 seconds of waves
 def get_wave_file(frame_num, is_slow=False):
+    global num_wave_frames, num_slow_wave_frames
     if num_wave_frames is None:
         num_wave_frames = len(glob('media/frames/waves/*.png'))
     if num_slow_wave_frames is None:
