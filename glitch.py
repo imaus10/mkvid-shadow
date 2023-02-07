@@ -68,52 +68,31 @@ mushroom_chunks = [
 num_chunks = len(mushroom_chunks)
 
 def cut_outro():
-    if os.path.exists('media/outro_cut0.mp4'):
-        return
-    split_outputs = ''
-    trim_cmds = []
-    ffmpeg_outputs = []
+    chunk_dur = 4*bar_dur
     for chunk_num in range(num_chunks):
+        out_path = f'media/outro_cut{chunk_num}.mp4'
+        if os.path.exists(out_path):
+            continue
         # first four chunks are half of the riff duration
         # (to keep the motion transfer from turning everything pink)
-        previous_dur = 4*bar_dur*chunk_num
-        start_frame = s_to_f(previous_dur)
-        trim_args = f'start_frame={start_frame}'
-        # but last chunk is the rest of the song
+        chunk_start = outro_start + chunk_dur*chunk_num
         if chunk_num < num_chunks-1:
-            chunk_dur = 4*bar_dur
-            end_frame = s_to_f(previous_dur + chunk_dur)
-            trim_args += f':end_frame={end_frame}'
-        trim_input = f'[outro{chunk_num}]'
-        trim_output = f'[outrocut{chunk_num}]'
-        trim_cmds.append(
-            # scale up to the size of the mushroom timelapse
-            # for higher quality glitching
-            f'{trim_input} trim={trim_args}, setpts=PTS-STARTPTS, scale={motion_scale} {trim_output}'
-        )
-        split_outputs += trim_input
-        ffmpeg_outputs.append(f'-map {trim_output} -an media/outro_cut{chunk_num}.mp4')
-
-    trim_cmds = ';\n        '.join(trim_cmds)
-    ffmpeg_outputs = '\n      '.join(ffmpeg_outputs)
-    ffmpeg(f'''
-      -i media/glitch_output.avi
-      -filter_complex
-       "[0:v]
-          trim=start_frame={s_to_f(outro_start)},
-          setpts=PTS-STARTPTS,
-          split={num_chunks}
-        {split_outputs};
-        {trim_cmds}"
-      {ffmpeg_outputs}
-    ''')
+            cmd = f'trim=duration={chunk_dur}, '
+        else:
+            # but last chunk is the rest of the song
+            cmd = ''
+        cmd += f'scale={motion_scale}'
+        ffmpeg(f'''
+          -ss {chunk_start} -i media/glitch_output.avi
+          -vf "{cmd}" -an
+          media/outro_cut{chunk_num}.mp4
+        ''')
 
 
 def cut_mushroom_timelapse(chunk_num, mushroom_alignments, send_pipe):
     mushroom_cut_path = f'media/mushroom_cut{chunk_num}.mp4'
     if os.path.exists(mushroom_cut_path):
         return
-    send_pipe.send('We gonna cut')
 
     # each clip is 2 bars
     target_duration = bar_dur*2
@@ -285,7 +264,7 @@ def overlay_one_frame(
     dancer_fade_in,fade_out_start, dancer_fade_out,
     blend_start, dancer_blend, frame_num
 ):
-    original_frame_num = frame_num-1+s_to_f(outro_start)
+    original_frame_num = frame_num+s_to_f(outro_start)
     out_path = f'media/frames/outro_masked/{frame_num:06d}.png'
     mushrooms_path = f'media/frames/outro_mushroom_motion/{frame_num:06d}.png'
     dancer_path = f'media/frames/dancers/{original_frame_num:06d}.png'
