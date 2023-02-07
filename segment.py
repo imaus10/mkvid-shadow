@@ -5,7 +5,7 @@ import cv2
 import mediapipe as mp
 mp_pose = mp.solutions.pose
 import numpy as np
-from tqdm import trange
+from tqdm import tqdm
 
 from params import *
 
@@ -43,7 +43,11 @@ def save_dancer_masks():
     # and run pose segmentation on each half,
     # then piece together the full mask.
     with mp_pose.Pose(**pose_params) as pose_left, mp_pose.Pose(**pose_params) as pose_right:
-        for frame_num in trange(s_to_f(outro_start), get_num_dancer_frames()+1):
+        # the first several frames have missed detections
+        # so we put the frame with the first successful detection in front...
+        frames = list(range(s_to_f(outro_start)+1, get_num_dancer_frames()+1))
+        frames = [frames.pop(3), *frames]
+        for frame_num in tqdm(frames):
             in_path = f'media/frames/dancers/{frame_num:06d}.png'
             dancers = cv2.imread(in_path)
             dancer_left, dancer_right = np.hsplit(dancers, 2)
