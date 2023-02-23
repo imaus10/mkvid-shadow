@@ -255,7 +255,8 @@ def overlay():
 def recombine():
     prinnit('Recombining glitched 2nd half, adding bridge fire, audio, and opening titles/credits...')
     metadata_description = f'''
-        An open source music video for Near Northeast by Austin Blanton (aka Art Fungus).
+        An open source found footage glitch art music video
+        for Near Northeast by Austin Blanton (aka Art Fungus).
     '''
     ffmpeg(f'''
       -i media/glitch_output.avi
@@ -288,7 +289,7 @@ def recombine():
       -c:v libx264 -pix_fmt yuv420p -r {fps}
       -metadata title="Near Northeast - Shadow"
       -metadata description="{metadata_description}"
-      media/shadow11.mp4
+      media/shadow13.mp4
     ''')
 
 
@@ -311,9 +312,7 @@ def mkvid():
     recombine()
 
     # TODO: clean up
-    # subprocess.run('rm -r media/frames', check=True, shell=True)
-    # rm media/outro_cut0.mp4 media/outro_cut1.mp4 media/outro_mushroom_motion0.mpg media/outro_mushroom_motion1.mpg media/shadow_glitch_input.avi media/shadow_glitch_output.avi
-    # rm -r media/frames/interweaved/ media/frames/outro_dancer_glitch/ media/frames/outro_masked/ media/frames/outro_mushroom_motion/
+    # subprocess.run('rm -r media', check=True, shell=True)
 
 
 if __name__ == '__main__':
