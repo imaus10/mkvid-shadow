@@ -12,11 +12,13 @@ An open source found footage glitch art music video for the song "Shadow" by DC 
 
 ## usage
 
-To "build from source," run:
+To generate the video, run:
 
 ```
 source mkvid.sh
 ```
+
+This will download the video sources, set up the environment, install all the required libraries (except the prereqs below, which you must install), and create the video.
 
 ## prereqs
 
@@ -42,5 +44,6 @@ This was built for MacOS. If you're using another OS, you'll likely need to chan
 
 ## TODO
 
+- align dancer entrance jump
 - encoding settings? (https://trac.ffmpeg.org/wiki/Encode/H.264)
 - test full process w setup (and time it)
