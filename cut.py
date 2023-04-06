@@ -282,14 +282,14 @@ def recombine():
         {add_credits()};
         [opening_titles][prebridge][bridge][outro_credits] concat=n=4:v=1:a=0 [outv];
         [5:a]
-          aloop=loop=15:start=44100*({total_dur}-1):size=44100,
-          afade=type=out:start_time={total_dur+5}:duration=10
+          aloop=loop=21:start=44100*({total_dur}-1):size=44100,
+          afade=type=out:start_time={total_dur+11}:duration=10
         [outa]"
       -map [outv] -map [outa]
       -c:v libx264 -pix_fmt yuv420p -r {fps}
       -metadata title="Near Northeast - Shadow"
       -metadata description="{metadata_description}"
-      media/shadow13.mp4
+      media/shadow14.mp4
     ''')
 
 

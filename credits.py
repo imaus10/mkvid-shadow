@@ -89,7 +89,12 @@ def drawtext(
     # escape string args
     for k,v in drawtext_args.items():
         if isinstance(v, str):
-            if ':' in v or ',' in v or ' ' in v:
+            esc = '\\'*5
+            if "'" in v:
+                v = v.replace("'", f"'{esc}''")
+            if '"' in v:
+                v = v.replace('"', f'\'{esc}"\'')
+            if ':' in v or ',' in v or ' ' in v or '\\' in v:
                 drawtext_args[k] = f"'{v}'"
     spaces = ' '*12
     drawtext_args = f':\n{spaces}'.join([ f'{k}={v}' for k,v in drawtext_args.items() ])
@@ -102,13 +107,15 @@ def drawtext_video(
     start_time=0, end_time=0,
     fade_in=None, fade_out=None,
     eof_action='pass',
+    text_cmd=None,
     **drawtext_args
 ):
     text_dur = end_time - start_time
-    text_cmd = drawtext(
-        fontcolor='white',
-        **drawtext_args
-    )
+    if text_cmd is None:
+        text_cmd = drawtext(
+            fontcolor='white',
+            **drawtext_args
+        )
 
     fades = ''
     if fade_in:
@@ -224,12 +231,254 @@ def add_opening_titles():
         [3:v] {shadow_static}'''
 
 
+def get_lineup_credits(start_time, duration):
+    lineup = []
+    lineup_common_args = {
+        'font'       : 'Avenir Next',
+        'fontcolor'  : 'white',
+        'start_time' : start_time,
+        'end_time'   : start_time+duration,
+        'fade_in'    : 3,
+        'fade_out'   : 3,
+    }
+    lineup.append(drawtext(
+        text     = 'Near Northeast is',
+        style    = 'Italic',
+        x        = '(w-text_w)/2',
+        y        = 120,
+        fontsize = 100,
+        **lineup_common_args,
+    ))
+    lineup_common_args = {
+        **lineup_common_args,
+        'style'    : 'Ultra Light',
+        'fontsize' : 60,
+    }
+    top_y = 320
+    bottom_y = top_y + 200
+    left_x = '(w-text_w)/6'
+    right_x = '(w-text_w)*5/6'
+    lineup.append(drawtext(
+        text = 'Kelly Servick',
+        x    = left_x,
+        y    = top_y,
+        **lineup_common_args,
+    ))
+    lineup.append(drawtext(
+        text = 'Avy Mallik',
+        x    = right_x,
+        y    = top_y,
+        **lineup_common_args,
+    ))
+    lineup.append(drawtext(
+        text = 'Antonio Skarica',
+        x    = left_x,
+        y    = bottom_y,
+        **lineup_common_args,
+    ))
+    lineup.append(drawtext(
+        text = 'Austin Blanton',
+        x    = right_x,
+        y    = bottom_y,
+        **lineup_common_args,
+    ))
+    lineup_common_args = {
+        **lineup_common_args,
+        'font'     :'Courier New',
+        'style'    : 'Regular',
+        'fontsize' : 30,
+    }
+    lineup.append(drawtext(
+        text = '(Art Fungus)',
+        x    = f'{right_x}-50',
+        y    = bottom_y+80,
+        **lineup_common_args,
+    ))
+    spaces = ' '*10
+    lineup = f',\n{spaces}'.join(lineup)
+    return lineup
+
+
+def get_dance_credits(start_time, duration):
+    shared_args = {
+        'font'       : 'Avenir Next',
+        'fontcolor'  : 'white',
+        'start_time' : start_time,
+        'end_time'   : start_time+duration,
+        'fade_in'    : 2,
+        'fade_out'   : 2,
+    }
+    y = 40
+    credit_style = 'Italic'
+    credit_fontsize = 25
+    group_spacing = 50
+    credit_spacing = 10
+    name_style = 'Regular'
+    name_fontsize = 35
+    dance_from = drawtext(
+        text     = 'dance from',
+        style    = credit_style,
+        fontsize = credit_fontsize,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += credit_fontsize + credit_spacing
+    butterfly = drawtext(
+        text     = '"BUTTERFLY"',
+        style    = name_style,
+        fontsize = 60,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += 60
+    performed_by = drawtext(
+        text     = 'performed by',
+        style    = credit_style,
+        fontsize = credit_fontsize,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += credit_fontsize + credit_spacing
+    dance_spectrum = drawtext(
+        text     = ["Carlos Carvajal's", "San Francisco Dance Spectrum"],
+        style    = name_style,
+        fontsize = 50,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += 50*2
+    season = drawtext(
+        text     = '1977 season',
+        style    = name_style,
+        fontsize = credit_fontsize+10,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += credit_fontsize + group_spacing
+    choreography = drawtext(
+        text     = 'choreography',
+        style    = credit_style,
+        fontsize = credit_fontsize,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += credit_fontsize + credit_spacing
+    choreographer = drawtext(
+        text     = 'Rael Lamb',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += name_fontsize + group_spacing
+    dancers = drawtext(
+        text     = 'dancers',
+        style    = credit_style,
+        fontsize = credit_fontsize,
+        x        = '(w-text_w)/2',
+        y        = y,
+        **shared_args,
+    )
+    y += credit_fontsize + credit_spacing
+    name_left_x = 'w/2 - text_w - 20'
+    # name_left_x = 'w/2 - 275'
+    name_right_x = 'w/2 + 20'
+    name_spacing = 15
+    dancer_names1 = drawtext(
+        text     = 'Katherine Warner',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_left_x,
+        y        = y,
+        **shared_args,
+    )
+    dancer_names2 = drawtext(
+        text     = 'Carolyn Houser [Carvajal]',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_right_x,
+        y        = y,
+        **shared_args,
+    )
+    y += name_fontsize + name_spacing
+    dancer_names3 = drawtext(
+        text     = 'Peggy Davis',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_left_x,
+        y        = y,
+        **shared_args,
+    )
+    dancer_names4 = drawtext(
+        text     = 'Sulpicio Wagner [Mariano]',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_right_x,
+        y        = y,
+        **shared_args,
+    )
+    y += name_fontsize + name_spacing
+    dancer_names5 = drawtext(
+        text     = 'Charles Butts',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_left_x,
+        y        = y,
+        **shared_args,
+    )
+    dancer_names6 = drawtext(
+        text     = 'Virgil Pearson Smith',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_right_x,
+        y        = y,
+        **shared_args,
+    )
+    y += name_fontsize + name_spacing
+    dancer_names7 = drawtext(
+        text     = 'Tom Sczepanski',
+        style    = name_style,
+        fontsize = name_fontsize,
+        x        = name_left_x,
+        y        = y,
+        **shared_args,
+    )
+    spaces = ' '*10
+    dance_credits = f',\n{spaces}'.join([
+        dance_from,
+        butterfly,
+        performed_by,
+        dance_spectrum,
+        season,
+        choreography,
+        choreographer,
+        dancers,
+        dancer_names1,
+        dancer_names2,
+        dancer_names3,
+        dancer_names4,
+        dancer_names5,
+        dancer_names6,
+        dancer_names7,
+    ])
+    return dance_credits
+
+
+
 def add_credits():
     # my initial tests were done on a slice
     # starting at 4:40,
     # but this starts from the outro
     start_offset = total_dur - outro_start - 20
     last_second = total_dur - outro_start - 1
+    directed_by_start = start_offset + 13.3
     directed_by = drawtext(
         text       = 'directed by',
         font       = 'Avenir Next',
@@ -239,9 +488,9 @@ def add_credits():
         x          = '(w-text_w)/2',
         y          = 200,
         fade_in    = 2,
-        start_time = start_offset + 13.3,
+        start_time = directed_by_start,
     )
-    director_start = start_offset + 15.3
+    director_start = directed_by_start + 2
     director_stop = director_start + 10
     director_common_args = {
         'font'  : 'Avenir Next',
@@ -297,71 +546,13 @@ def add_credits():
         y          = 600,
         start_time = colors_start,
     )
+    # and then show the dance credits
+    start_time = start_offset+25
+    duration = 8
+    dance_credits = get_dance_credits(start_time, duration)
     # and then show the NNE lineup
-    lineup = []
-    lineup_common_args = {
-        'font'       : 'Avenir Next',
-        'fontcolor'  : 'white',
-        'fontsize'   : 100,
-        'start_time' : start_offset+25,
-        'end_time'   : start_offset+35,
-        'fade_in'    : 3,
-        'fade_out'   : 3,
-    }
-    lineup.append(drawtext(
-        text  = 'Near Northeast is',
-        style = 'Italic',
-        x     = '(w-text_w)/2',
-        y     = 80,
-        **lineup_common_args,
-    ))
-    lineup_common_args = {
-        **lineup_common_args,
-        'style'    : 'Ultra Light',
-        'fontsize' : 60,
-    }
-    top_y = 320
-    bottom_y = top_y + 200
-    left_x = '(w-text_w)/6'
-    right_x = '(w-text_w)*5/6'
-    lineup.append(drawtext(
-        text = 'Kelly Servick',
-        x    = left_x,
-        y    = top_y,
-        **lineup_common_args,
-    ))
-    lineup.append(drawtext(
-        text = 'Avy Mallik',
-        x    = right_x,
-        y    = top_y,
-        **lineup_common_args,
-    ))
-    lineup.append(drawtext(
-        text = 'Antonio Skarica',
-        x    = left_x,
-        y    = bottom_y,
-        **lineup_common_args,
-    ))
-    lineup.append(drawtext(
-        text = 'Austin Blanton',
-        x    = right_x,
-        y    = bottom_y,
-        **lineup_common_args,
-    ))
-    lineup_common_args = {
-        **lineup_common_args,
-        'font'     :'Courier New',
-        'style'    : 'Regular',
-        'fontsize' : 30,
-    }
-    lineup.append(drawtext(
-        text = '(Art Fungus)',
-        x    = f'{right_x}-50',
-        y    = bottom_y+80,
-        **lineup_common_args,
-    ))
-    spaces = ' '*10
-    lineup = f',\n{spaces}'.join(lineup)
+    start_time = start_time + duration
+    lineup = get_lineup_credits(start_time, duration)
 
     return f'''[4:v]
           trim=duration=7.3, {get_stretch_cmd(7.3, 10*fps)}, fps=30,
@@ -376,6 +567,7 @@ def add_credits():
         [3:v]
           {director_mushroom},
           fade=type=out:start_time={start_offset+22.3}:duration=3,
-          tpad=stop_duration=9.7,
+          tpad=stop_duration=15.7,
+          {dance_credits},
           {lineup}
         [outro_credits]'''
