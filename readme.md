@@ -2,6 +2,8 @@
 
 An open source found footage glitch art music video for the song "Shadow" by DC band [Near Northeast](https://www.instagram.com/nearnortheast/).
 
+[Watch the video!](https://www.youtube.com/watch?v=miPab4XAOrI)
+
 ![verse 1](/gifs/verse1.gif?raw=true)
 
 ![chorus](/gifs/chorus.gif?raw=true)
